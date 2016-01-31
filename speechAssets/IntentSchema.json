@@ -1,0 +1,49 @@
+{
+  "intents": [
+ 
+    {
+      "intent": "AMAZON.HelpIntent"
+    },
+    {
+      "intent": "AMAZON.StopIntent"
+    },
+    {
+      "intent": "AMAZON.CancelIntent"
+    },
+    {
+      "intent": "ContactExistIntent",
+      "slots": [
+        {
+          "name": "Name",
+          "type": "LITERAL"
+        }
+      ]
+    },
+    {
+      "intent": "LeadsTodayIntent",
+      "slots": []
+    },
+    {
+      "intent": "LeadStartIntent",
+      "slots": []
+    },
+    {
+     "intent": "LeadNameIntent",
+     "slots":[
+        {
+          "name": "Name",
+          "type": "LITERAL"
+        }
+      ]
+    },
+    {
+     "intent": "LeadCompanyIntent",
+     "slots":[
+        {
+          "name": "Company",
+          "type": "LITERAL"
+        }
+      ]
+    }
+  ]
+}
