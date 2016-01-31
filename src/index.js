@@ -1,4 +1,4 @@
-require('dotenv').load('config.env');
+require('dotenv').load();
 
 var http       = require('http')
   , AlexaSkill = require('./AlexaSkill')
