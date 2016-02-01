@@ -2,7 +2,7 @@ require('dotenv').load();
 
 var http       = require('http')
   , AlexaSkill = require('./AlexaSkill')
-  , APP_ID = 'amzn1.echo-sdk-ams.app.b74b01aa-393c-4f1d-b75d-705f43f164ca'
+  , APP_ID = false //'amzn1.echo-sdk-ams.app.92fb95e3-4363-4c96-bc06-9dc9c17f9bc0'//'amzn1.echo-sdk-ams.app.b74b01aa-393c-4f1d-b75d-705f43f164ca'
   , nforce = require('nforce')
   , _ = require('lodash')
   , moment = require('moment-timezone')
