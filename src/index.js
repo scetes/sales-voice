@@ -46,7 +46,7 @@ var getDataFromCRM = function(key, callback){
 
 var handleContactExistIntent = function(intent, session, response){
 
-  var contact_id
+  var contact_id;
   var    text;
   var    contactName;
 
@@ -68,7 +68,7 @@ var handleContactExistIntent = function(intent, session, response){
     response.tell(text);
   });
 
-}
+};
 
 
 // find any leads created today
@@ -79,7 +79,7 @@ function handleLeadsTodayIntent(response) {
   org.authenticate({ username: SF_USER, password: SF_PWD_TOKEN }).then(function(){
     return org.query({ query: query })
   }).then(function(results) {
-    speechOutput = 'Sorry, you do not have any new leads for today.'
+    speechOutput = 'Sorry, you do not have any new leads for today.';
     var recs = results.records;
     if (recs.length > 0) {
       speechOutput = 'You have ' + recs.length + ' new ' + pluralize('lead', recs.length) + ', ';
