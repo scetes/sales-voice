@@ -1,9 +1,10 @@
+AccountExistIntent is {ACME Corp|Account} an account
+AccountExistIntent is {IBM|Account} one of my accounts
+AccountExistIntent is {T Rowe Price|Account} an existing account
+AccountExistIntent is {Stanley Black and Decker|Account} an existing account
+
 LeadsTodayIntent for any new leads
 LeadsTodayIntent for my new leads
-
-OpportunityStatusEvent for opportunity {Jones|OpportunityName}
-OpportunityStatusEvent for opportunity {Edge S L A|OpportunityName}
-OpportunityStatusEvent for opportunity {United Oil Standby Generators|OpportunityName}
 
 LeadStartIntent to create a lead
 LeadStartIntent to create a new lead
@@ -13,9 +14,13 @@ LeadNameIntent {Steve Jones|Name}
 LeadNameIntent {Mike Smith|Name}
 LeadNameIntent {Mary Stewart|Name}
 
-LeadCompanyIntent {ACME Corp|Company}
+LeadCompanyIntent {Walmart|Company}
 LeadCompanyIntent {ABC Company|Company}
 LeadCompanyIntent {Fresh Foods Packaging|Company}
+
+OpportunityStatusEvent for opportunity {Jones|OpportunityName}
+OpportunityStatusEvent for opportunity {Edge S L A|OpportunityName}
+OpportunityStatusEvent for opportunity {United Oil Standby Generators|OpportunityName}
 
 MyCalendarIntent for my calendar for today
 
