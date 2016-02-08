@@ -53,7 +53,7 @@ var handleAccountExistIntent = function(intent, session, response){
 
     var recs = results.records;
     //if not found, look up in dBDirect, create new account in Salesforce, say thanks
-    if (recs.length = 0) {
+    if (recs.length == 0) {
       speechOutput = 'No ' + company + ' is not an existing account. I created a new account using Dunn and Bradstreet business directory' ;
 
       //getDataFromREST(findCompanyURL, function(data){
