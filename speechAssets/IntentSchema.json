@@ -11,6 +11,24 @@
       "intent": "AMAZON.CancelIntent"
     },
     {
+      "intent": "NewOpportunityIntent",
+      "slots": [
+        {
+          "name": "OpportunityName",
+          "type": "LITERAL"
+        }
+      ]
+    },
+    {
+      "intent": "AccountMatchIntent",
+      "slots": [
+        {
+          "name": "Company",
+          "type": "LITERAL"
+        }
+      ]
+    },
+    {
       "intent": "AccountExistIntent",
       "slots": [
         {

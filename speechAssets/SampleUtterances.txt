@@ -3,6 +3,12 @@ AccountExistIntent is {IBM|Account} one of my accounts
 AccountExistIntent is {T Rowe Price|Account} an existing account
 AccountExistIntent is {Stanley Black and Decker|Account} an existing account
 
+AccountMatchIntent find {Walmart|Company} company
+
+NewOpportunityIntent to create opportunity {ACME Corp|OpportunityName}
+NewOpportunityIntent to create opportunity {IBM|OpportunityName}
+
+
 LeadsTodayIntent for any new leads
 LeadsTodayIntent for my new leads
 
@@ -14,27 +20,6 @@ LeadNameIntent {Steve Jones|Name}
 LeadNameIntent {Mike Smith|Name}
 LeadNameIntent {Mary Stewart|Name}
 
-LeadCompanyIntent {Walmart|Company}
-LeadCompanyIntent {ABC Company|Company}
-LeadCompanyIntent {Fresh Foods Packaging|Company}
-
-OpportunityStatusEvent for opportunity {Jones|OpportunityName}
-OpportunityStatusEvent for opportunity {Edge S L A|OpportunityName}
-OpportunityStatusEvent for opportunity {United Oil Standby Generators|OpportunityName}
-
-MyCalendarIntent for my calendar for today
-
-HelpIntent help
-HelpIntent help me
-HelpIntent what can I ask you
-HelpIntent get help
-HelpIntent what commands can I ask
-HelpIntent what commands can I say
-HelpIntent what can I do
-HelpIntent what can I use this for
-HelpIntent what questions can I ask
-HelpIntent what can you do
-HelpIntent what do you do
-HelpIntent how do I use you
-HelpIntent how can I use you
-HelpIntent what can you tell me
+LeadCompanyIntent company is {Walmart|Company}
+LeadCompanyIntent company is {ABC Company|Company}
+LeadCompanyIntent company is {Fresh Foods Packaging|Company}
