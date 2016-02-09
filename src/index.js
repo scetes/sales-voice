@@ -1,85 +1,49 @@
 require('dotenv').load();
 
-var http       = require('http')
+var http       = require('https')
   , AlexaSkill = require('./AlexaSkill')
   , APP_ID = false //'amzn1.echo-sdk-ams.app.92fb95e3-4363-4c96-bc06-9dc9c17f9bc0'//'amzn1.echo-sdk-ams.app.b74b01aa-393c-4f1d-b75d-705f43f164ca'
   , nforce = require('nforce')
   , _ = require('lodash')
   , moment = require('moment-timezone')
+   // , dbdirectmock = require('./dbdirectmock.json')
   , pluralize = require('pluralize');
 
 var url = function(path){
   return process.env.DBDIRECT_API20_BASE_URL + '/' + path;//'http://104.196.35.163:8088/api/contacts/' + key;
 };
 
+/**
+ * connection to salesforce using the nforce library
+ */
 var org = nforce.createConnection({
   clientId: process.env.SF_CLIENT_ID,
   clientSecret: process.env.SF_CLIENT_SECRET,
   redirectUri: process.env.SF_REDIRECT_URL,
   mode: 'single'
 });
-
+// user and pwd are used in each call to salesforce, in single user mode
 var SF_USER = process.env.SF_USER;
 var SF_PWD_TOKEN = process.env.SF_PWD_TOKEN;
 
-var DB_API_BASE_URI = process.env.DB_API_BASE_URI;
-var DB_API_ORGANIZATION_PATH_URI=process.env.DB_API_ORGANIZATION_PATH_URI;
-
-var handleAccountExistIntent = function(intent, session, response){
-
-  var company;
-  var    text;
-  var    Name;
-
-  //the company name passed in, e.g., from an Alexa skill
-  company = intent.slots.Account.value;
-
-  var findCompanyURL;
-  // note for DB Sandbox the keyword criteria is ignored.  A search returns static result for Gorman%20Manufacturing
-  findCompanyURL = DB_API_BASE_URI + DB_API_ORGANIZATION_PATH_URI + '?KeywordText='+ company + '&SearchModeDescription=Basic&findcompany=true';
-
-  //need to get the query right...look at sf
-  var query = "Select Name from Account where Name like '" + company + "'";
-  console.log('query: ' + query);
-
-  //look for account by this name in salesforce
-  // auth and run query
-  org.authenticate({ username: SF_USER, password: SF_PWD_TOKEN }).then(function(){
-    return org.query({ query: query })
-  }).then(function(results) {
-
-    //if found, say thanks
-    speechOutput = 'Yes, ' + company + ' is an existing account.';
-
-    var recs = results.records;
-    //if not found, look up in dBDirect, create new account in Salesforce, say thanks
-    if (recs.length == 0) {
-      speechOutput = 'No ' + company + ' is not an existing account. I created a new account using Dunn and Bradstreet business directory' ;
-
-      //getDataFromREST(findCompanyURL, function(data){
-
-    }
-
-    // Create speech output
-    response.tellWithCard(speechOutput, "Salesforce", speechOutput);
-  }).error(function(err) {
-    var errorOutput = 'Darn, there was a Salesforce problem, sorry';
-    response.tell(errorOutput, "Salesforce", errorOutput + err);
-  });
-
-
-};
-
-
-
-var getDataFromREST = function(url, callback){
+/**
+ *
+ * not using this function anymore.  had originally created this
+ * to test calling out to my dummy crm service
+ * keeping it around in case need arises to hit another rest service
+ */
+var getDataFromREST = function(options, callback){
   var result;
-  console.log('url' + url);
-  http.get(url, function(res){
-    var body = '';
+  console.log('options' + options);
+
+  //callback({FindCompanyResponse: 'db direct fake'});
+
+  http.get(options, function(res){
+    var body = 'no reponse, prob an error';
 
     res.on('data', function(data){
       body += data;
+      console.log('response data ' + data)
     });
 
     res.on('end', function(){
@@ -87,14 +51,22 @@ var getDataFromREST = function(url, callback){
       callback(result);
     });
 
+
   }).on('error', function(e){
     console.log('Error: ' + e);
+
   });
+
 
 };
 
 
-// find any leads created today
+/**
+ *
+ * query Salesforce for a list of leads -- hardcoded for 'today'
+ * Alexa utterance example: 'new leads' or 'my leads'
+ * careful -- 'new lead' is different intent for creating a new lead
+ */
 function handleLeadsTodayIntent(response) {
   var speechOutput = 'saywhat'; 
   var query = 'Select Name, Company from Lead where CreatedDate = TODAY';
@@ -124,7 +96,14 @@ function handleLeadsTodayIntent(response) {
 }
 
 
-// start a new session to create a lead
+/**
+ *
+ * handles the Alexa intent for stating the new lead interaction
+ * Alexa utterance example: 'new lead'
+ *
+ * @param session
+ * @param response
+ */
 function handleLeadStartIntent(session, response) {
   var speechOutput = "OK, let's create a new lead., What is the person's first and last name?";
   response.ask(speechOutput);
@@ -137,31 +116,144 @@ function handleLeadNameIntent(intent, session, response) {
   response.ask(speechOutput);
 }
 
-
-// collect the company name and create the actual lead
+/**
+ * collect the company name and create the actual lead or opportunity
+ * Alexa utterance example: 'company is IBM'
+ * note, it's important to utter 'company is' before saying the company name.
+ * @param intent
+ * @param session
+ * @param response
+ */
 function handleLeadCompanyIntent(intent, session, response) {
-  var speechOutput = "Bingo! I created a new lead for  "
-    + session.attributes.name + " with the company name " + intent.slots.Company.value;
   var names = session.attributes.name.split(' ');
-  var obj = nforce.createSObject('Lead');
-  obj.set('FirstName', names[0]);
-  obj.set('LastName', names[1]);
-  obj.set('Company', intent.slots.Company.value);
+  var query = "Select Name, Id from Account where Name like '" + intent.slots.Company.value + "'";
+  console.log('query: ' + query);
+  org.authenticate({ username: SF_USER, password: SF_PWD_TOKEN }).then(function() {
+    return org.query({query: query})
 
-  org.authenticate({ username: SF_USER, password: SF_PWD_TOKEN }).then(function(){
-    return org.insert({ sobject: obj })
-  }).then(function(results) {
+  }).then(function(results){ // this result is from the query to salesforce
+    var recs = results.records;
+    //if company not found in salesforce, create the lead
+    if (recs.length == 0) {
+      console.log('company not found. try to create lead');
+      speechOutput = 'created lead for ' + names[1] + ' at ' + intent.slots.Company.value;
+      var obj = nforce.createSObject('Lead');
+      obj.set('FirstName', names[0]);
+      obj.set('LastName', names[1]);
+      obj.set('Company', intent.slots.Company.value);
+      return org.insert({ sobject: obj })
+    }
+    else{//if company is already an account, then create an opportunity  not a lead
+      console.log('account exists for company. try to create opportunity');
+      console.log('recs object' + JSON.stringify(recs));
+      speechOutput = 'created opportunity for ' + intent.slots.Company.value;
+      var opp = nforce.createSObject('Opportunity');
+      opp.set('Name', intent.slots.Company.value + '-' +names[1] );
+      opp.set('StageName', 'Prospecting');
+      opp.set('CloseDate', '2017-01-01T18:25:43.511Z');//2017-01-01T18:25:43.511Z
+      return org.insert({ sobject: opp })
+    }
+  }).then(function(results) { // this result is from the insert operation to salesforce
     if (results.success) {
       response.tellWithCard(speechOutput, "Salesforce", speechOutput);
     } else {
-      speechOutput = 'Darn, there was a salesforce problem, sorry.';
+      speechOutput = 'a salesforce problem with inserting object';
       response.tellWithCard(speechOutput, "Salesforce", speechOutput);
     }
   }).error(function(err) {
     var errorOutput = 'Darn, there was a Salesforce problem, sorry';
-    response.tell(errorOutput, "Salesforce", errorOutput);
+    response.tell(errorOutput + ' : ' + err, "Salesforce", errorOutput);
   });
 }
+
+
+/**
+ *
+ * Handles the Alexa intent for creating a new opportunity
+ * utterance example: create opportunity Walmart
+ * successful create response looks like:
+ *
+ * {
+ *   "id": "00637000007eT6PAAU",
+ *   "success": true,
+ *   "errors": []
+ * }
+ *
+ */
+var handleNewOpportunityIntent = function(intent, session, response){
+
+  var speechOutput;
+  var opp;
+
+  opp = nforce.createSObject('Opportunity');
+  //todo: set the name as a concat of company name from session and today's date
+  opp.set('Name', intent.slots.OpportunityName.value);
+  opp.set('StageName', 'Prospecting');
+  opp.set('CloseDate', '2017-01-01T18:25:43.511Z');//2017-01-01T18:25:43.511Z
+  console.log(opp);
+  // auth and run query.  Use Promise 'then' to chain the callbacks with one common error function
+  org.authenticate({username: SF_USER, password: SF_PWD_TOKEN}).then(function () {
+    return org.insert({sobject: opp})
+  }).then(function (results) {
+    if (results.success) {
+      speechOutput = 'Opportunity created.';
+      response.tellWithCard(speechOutput, "Salesforce", speechOutput);
+    } else {
+      speechOutput = 'There was a problem with a salesforce creating new opportunity.';
+      response.tellWithCard(speechOutput, "Salesforce", speechOutput);
+    }
+  }).error(function (err) {
+    var errorOutput = 'Darn, there was a Salesforce problem, sorry';
+    response.tell(errorOutput + ' : ' + err, "Salesforce", errorOutput + err);
+  });
+
+};
+
+/**
+ *  Handles the Alexa intent to ask if a company is an existing account in salesforce
+ *  Alexa utterance example: 'is IBM an account'
+ * @param intent
+ * @param session
+ * @param response
+ */
+var handleAccountExistIntent = function(intent, session, response){
+
+  var company;
+  var    text;
+  var    Name;
+  var speechOutput = 'hello';
+
+  //the company name passed in, e.g., from an Alexa skill
+  company = intent.slots.Account.value;
+
+  //not sure how the 'like' works in SOQL.  need to research
+  var query = "Select Name from Account where Name like '" + company + "'";
+  console.log('query: ' + query);
+
+  //look for account by this name in salesforce
+  // auth and run query
+  org.authenticate({ username: SF_USER, password: SF_PWD_TOKEN }).then(function(){
+    return org.query({ query: query })
+  }).then(function(results) {
+
+    //if found,
+    speechOutput = 'Yes, ' + company + ' is an existing account.';
+
+    var recs = results.records;
+    //if not found, look up in dBDirect -- need to fake this out for now.  DBDirect REST call giving me fits in nodejs
+    if (recs.length == 0) {
+      speechOutput = 'No ' + company + ' is not an existing account. I created a new account using Dunn and Bradstreet business directory' ;
+    }
+
+    // Create speech output
+    response.tellWithCard(speechOutput, "Salesforce", speechOutput);
+  }).error(function(err) {
+    var errorOutput = 'Darn, there was a Salesforce problem, sorry';
+    response.tell(errorOutput, "Salesforce", errorOutput + err);
+  });
+
+
+};
 
 
 var SalesVoiceSkill = function(){
@@ -181,8 +273,7 @@ SalesVoiceSkill.prototype.eventHandlers.onSessionStarted = function(sessionStart
 
 SalesVoiceSkill.prototype.eventHandlers.onLaunch = function(launchRequest, session, response){
   // This is when they launch the skill but don't specify what they want. Prompt them to ask for something
-  var output = 'Welcome to Salesy. ' +
-    'Ask if a contact exists in CRM or ask for details for contact.';
+  var output = 'Welcome to Salesvoice';
 
   var reprompt = 'Which contact do you want to know about?';
 
@@ -193,6 +284,16 @@ SalesVoiceSkill.prototype.eventHandlers.onLaunch = function(launchRequest, sessi
 };
 
 SalesVoiceSkill.prototype.intentHandlers = {
+
+//  AccountMatchIntent: function(intent, session, response){
+//    handleAccountMatchIntent(intent, session, response);
+//  },
+
+  NewOpportunityIntent: function(intent, session, response){
+    handleNewOpportunityIntent(intent, session, response);
+  },
+
+
   AccountExistIntent: function(intent, session, response){
     handleAccountExistIntent(intent, session, response);
   },
@@ -224,7 +325,7 @@ SalesVoiceSkill.prototype.intentHandlers = {
   }
 };
 
-exports.handler = function(event, context) {
+    exports.handler = function(event, context) {
     var skill = new SalesVoiceSkill();
     skill.execute(event, context);
 
