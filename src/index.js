@@ -170,18 +170,20 @@ function handleLeadCompanyIntent(intent, session, response) {
     }
     else{//if company is already an account, then create an opportunity  not a lead
       console.log('account exists for company. try to create opportunity');
-      console.log('recs object' + JSON.stringify(recs));
+      console.log('recs: ' + JSON.stringify(recs));
       speechOutput = 'created opportunity for ' + intent.slots.Company.value;
 
       var opp = nforce.createSObject('Opportunity');
       opp.set('Name', intent.slots.Company.value + '-' +names[1] );
       opp.set('StageName', 'Prospecting');
       opp.set('CloseDate', '2017-01-01T18:25:43.511Z');//2017-01-01T18:25:43.511Z
+      opp.set('AccountId', '00137000009eTf1AAE')
 
       return org.insert({ sobject: opp })
     }
   }).then(function(results) { // this result is from the insert operation to salesforce
     if (results.success) {
+      console.log('insert results: ' + JSON.stringify(results));
       response.tellWithCard(speechOutput, "Salesforce", speechOutput);
     } else {
       speechOutput = 'a salesforce problem with inserting object';
