@@ -1,17 +1,42 @@
 require('dotenv').load();
 
-var http       = require('https')
-  , AlexaSkill = require('./AlexaSkill')
-  , APP_ID = false //'amzn1.echo-sdk-ams.app.92fb95e3-4363-4c96-bc06-9dc9c17f9bc0'//'amzn1.echo-sdk-ams.app.b74b01aa-393c-4f1d-b75d-705f43f164ca'
-  , nforce = require('nforce')
-  , _ = require('lodash')
-  , moment = require('moment-timezone')
-   // , dbdirectmock = require('./dbdirectmock.json')
-  , pluralize = require('pluralize');
+var http = require('https')
+    , AlexaSkill = require('./AlexaSkill')
+    , APP_ID = false //'amzn1.echo-sdk-ams.app.92fb95e3-4363-4c96-bc06-9dc9c17f9bc0'//'amzn1.echo-sdk-ams.app.b74b01aa-393c-4f1d-b75d-705f43f164ca'
+    , nforce = require('nforce')
+    , _ = require('lodash')
+    , moment = require('moment-timezone')
+    , pluralize = require('pluralize')
+    , AWS = require('aws-sdk');
 
-var url = function(path){
-  return process.env.DBDIRECT_API20_BASE_URL + '/' + path;//'http://104.196.35.163:8088/api/contacts/' + key;
+// Configure the instance to prepare for integration with AWS.  these are Jason's secrets
+AWS.config.update({accessKeyId: 'AKIAJKJ6DYKSQHQQIRFQ', secretAccessKey: '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'});
+AWS.config.update({"region":"us-east-1"});
+
+
+// Init an instance of Lambda.
+var lambda = new AWS.Lambda();
+
+// Function pointer for callback handler.  Used for create
+var snsCallback = function(err, data) {
+
+  // Did an error occur?
+  if (err)
+    console.log(err);
+  else
+    console.log(data);
 };
+
+
+// Object that contains the Lambda input parameters.
+var snsParam = {
+  "FunctionName": "bk-sns",
+  "Payload": '{"arn":"arn":"arn:aws:sns:us-east-1:724245399934:bk-stn-sms", "message":"Message from Alexa lambda - macek"}'
+};
+
+
+//sqs arn: arn:aws:lambda:us-east-1:724245399934:function:bk-sqs
+//sns arn: arn:aws:sns:us-east-1:724245399934:bk-stn-sms
 
 /**
  * connection to salesforce using the nforce library
@@ -56,8 +81,6 @@ var getDataFromREST = function(options, callback){
     console.log('Error: ' + e);
 
   });
-
-
 };
 
 
@@ -125,8 +148,10 @@ function handleLeadNameIntent(intent, session, response) {
  * @param response
  */
 function handleLeadCompanyIntent(intent, session, response) {
+  var sqsParam;
   var names = session.attributes.name.split(' ');
   var query = "Select Name, Id from Account where Name like '" + intent.slots.Company.value + "'";
+
   console.log('query: ' + query);
   org.authenticate({ username: SF_USER, password: SF_PWD_TOKEN }).then(function() {
     return org.query({query: query})
@@ -147,10 +172,12 @@ function handleLeadCompanyIntent(intent, session, response) {
       console.log('account exists for company. try to create opportunity');
       console.log('recs object' + JSON.stringify(recs));
       speechOutput = 'created opportunity for ' + intent.slots.Company.value;
+
       var opp = nforce.createSObject('Opportunity');
       opp.set('Name', intent.slots.Company.value + '-' +names[1] );
       opp.set('StageName', 'Prospecting');
       opp.set('CloseDate', '2017-01-01T18:25:43.511Z');//2017-01-01T18:25:43.511Z
+
       return org.insert({ sobject: opp })
     }
   }).then(function(results) { // this result is from the insert operation to salesforce
@@ -160,7 +187,22 @@ function handleLeadCompanyIntent(intent, session, response) {
       speechOutput = 'a salesforce problem with inserting object';
       response.tellWithCard(speechOutput, "Salesforce", speechOutput);
     }
-  }).error(function(err) {
+  }).then(function () {
+        sqsParam = {
+          "FunctionName": "bk-sqs",
+          "Payload": JSON.stringify({
+            "arn": "'arn':'arn:aws:lambda:us-east-1:724245399934:bk-sqs'",
+            "industry": "technology",
+            "opportunityName": intent.slots.Company.value + '-' +names[1]
+          })
+        };
+        lambda.invoke(sqsParam, function(err, data) { // send data to lambda for sns topic
+    // Did an error occur?
+    if (err)
+      console.log('error calling lambda with params: ' + JSON.stringify(sqsParam), JSON.stringify(err));
+    else
+      console.log('success calling lambda with params: ' + JSON.stringify(sqsParam), JSON.stringify(data));
+  })}).error(function(err) {
     var errorOutput = 'Darn, there was a Salesforce problem, sorry';
     response.tell(errorOutput + ' : ' + err, "Salesforce", errorOutput);
   });
